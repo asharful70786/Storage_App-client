@@ -9,21 +9,28 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    env:
+      S3_BUCKET_NAME: storage-app-frontend-ashraful
+      CLOUDFRONT_DISTRIBUTION_ID: E10SARTVU09MM5
+      VITE_GOOGLE_CLIENT_ID: 894244013404-shsv1ml0rgs7f5lqtgk6smksm6br8p0t.apps.googleusercontent.com
+      VITE_BACKEND_BASE_URL: https://api.viralgut.com
 
     steps:
-      - name: Checkout code
+      - name: Clone frontend repository
         uses: actions/checkout@v4
-
-      - name: Setup Node.js
+        
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 23
-          cache: 'npm'
+          node-version: "23"
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Build frontend
+      - name: Run tests
+        run: npm test
+
+      - name: Build app
         run: npm run build
 
       - name: Configure AWS credentials
@@ -32,13 +39,15 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
-
+          
       - name: Upload to S3
-        run: |
-          aws s3 sync ./build s3://storage-app-frontend-ashraful --delete
+        run: aws s3 sync dist/ "s3://${S3_BUCKET_NAME}/" --delete
 
-      - name: Invalidate CloudFront cache
+      - name: Invalidate CloudFront
         run: |
           aws cloudfront create-invalidation \
-            --distribution-id E10SARTVU09MM5 \
-            --paths "/*"
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --paths "/index.html"
+
+      - name: Deployment complete
+        run: echo "Frontend Deployed Successfully..."
